@@ -22,6 +22,7 @@ var _talk_done: Callable
 var _boss_for_talk := ""
 var _talk_seen := ""        # 最後に会話を出した画面（組み直しで繰り返さない）
 var _overlay: Control        # 役一覧・お札の札選び
+var _overlay_modal := false  # お札の札選びは選ぶまで閉じられない（払ったお金が無駄になるため）
 
 # PLAY 画面の部品
 var _ui := {}
@@ -189,7 +190,7 @@ func _input(event: InputEvent) -> void:
 			_build()
 		return
 	if _overlay:
-		if k == KEY_ESCAPE:
+		if k == KEY_ESCAPE and not _overlay_modal:
 			_close_overlay()
 		return
 	if OS.is_debug_build():
@@ -454,7 +455,7 @@ func _build_play() -> void:
 	_screen.add_child(u.bar)
 	u.counts = _text("", Rect2(), 24)
 	u.money = _text("", Rect2(), 26, UiStyle.GOLD)
-	u.deck = _text("", Rect2(), 20, Color(1, 1, 1, 0.75))
+	u.deck = _button("", _show_deck, 18, Color(0.3, 0.3, 0.4))
 	var boss := run.boss_id()
 	if boss != "":
 		u.boss_pic = _picture("boss_" + boss, Rect2())
@@ -497,6 +498,9 @@ func _charm_slot(i: int) -> Control:
 	UiStyle.button_styles(b, Color(0.35, 0.2, 0.45))
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.clip_text = true
+	b.expand_icon = true
+	b.add_theme_constant_override("icon_max_width", 52)
+	b.add_theme_constant_override("h_separation", 4)
 	b.pressed.connect(func(): _show_charm_tip(i))
 	b.mouse_entered.connect(func(): _show_charm_tip(i))
 	_screen.add_child(b)
@@ -566,8 +570,7 @@ func _layout_play() -> void:
 		_place(u.discard, Rect2(180, by, 170, 80))
 		_place(u.play, Rect2(364, by, 220, 80))
 		_place(u.help, Rect2(598, by, 106, 80))
-		_place(u.deck, Rect2(v.x - 260, by - 34, 240, 30))
-		u.deck.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_place(u.deck, Rect2(v.x - 260, by - 50, 244, 42))
 		_place(u.bubble, Rect2(v.x - 470, 150, 300, 90))
 	else:
 		var info := Rect2(12, 12, 300, v.y - 24)
@@ -583,7 +586,7 @@ func _layout_play() -> void:
 			_place(u.boss_pic, Rect2(28, 340, 90, 90))
 			_place(u.boss_rule, Rect2(122, 340, 180, 100))
 		_place(u.kon, Rect2(20, v.y - 270, 260, 260))
-		_place(u.deck, Rect2(28, 304, 270, 30))
+		_place(u.deck, Rect2(28, 300, 268, 36))
 		var x0 := 330.0
 		var aw := v.x - x0 - 16
 		var sw := (aw - 4 * 10) / 5.0
@@ -657,15 +660,17 @@ func _refresh() -> void:
 	u.score.text = _num(run.score)
 	u.counts.text = ("出す 残り%d回\n捨てる 残り%d回" if not Screen.portrait else "出す %d回 / 捨てる %d回") % [run.plays_left, run.discards_left]
 	u.money.text = "%d 文" % run.money
-	u.deck.text = "山札 %d / %d枚" % [run.draw_pile.size(), run.deck.size()]
+	u.deck.text = "山札 %d / %d枚  ▶見る" % [run.draw_pile.size(), run.deck.size()]
 	for i in _charm_views.size():
 		var b: Button = _charm_views[i]
 		if i < run.charms.size():
 			var ch: Dictionary = run.charms[i]
 			b.text = Rules.CHARMS[ch.id][0] + _charm_badge(ch)
+			b.icon = tex("charms/" + ch.id)
 			b.modulate = Color.WHITE
 		else:
 			b.text = "ー"
+			b.icon = null
 			b.modulate = Color(1, 1, 1, 0.45)
 	_refresh_bar()
 	_update_buttons()
@@ -1091,11 +1096,11 @@ func _build_shop() -> void:
 		var r := Rect2(area.position + Vector2((i % cols) * (gw + 12), (i / cols) * (gh + 12)), Vector2(gw, gh))
 		_offer_card(o, i, r)
 	# コンと吹き出し
-	var kr := Rect2(10, v.y - 360, 290, 300) if not p else Rect2(v.x - 230, 80, 210, 210)
+	var kr := Rect2(10, v.y - 330, 280, 280) if not p else Rect2(v.x - 230, 80, 210, 210)
 	_picture("kon_smug", kr)
-	var br := Rect2(20, 90, 270, 140) if not p else Rect2(16, 90, v.x - 270, 190)
+	var br := Rect2(16, 86, 276, 196) if not p else Rect2(16, 90, v.x - 270, 190)
 	_panel(br, Color.WHITE, Color(1, 1, 1, 0.95))
-	var bt := _text(_shop_msg, br.grow(-14), 22, Color(0.1, 0.05, 0.05))
+	var bt := _text(_shop_msg, br.grow(-12), 20, Color(0.1, 0.05, 0.05))
 	bt.add_theme_constant_override("outline_size", 0)
 	# 持っている式神（タップで売る）
 	var oy := area.end.y + 14 if not p else 880.0
@@ -1104,6 +1109,9 @@ func _build_shop() -> void:
 	for i in run.charms.size():
 		var ch: Dictionary = run.charms[i]
 		var b := _button("%s\n売る %d文" % [Rules.CHARMS[ch.id][0], run.sell_price(ch.id)], _sell.bind(i), 18, Color(0.35, 0.2, 0.45))
+		b.icon = tex("charms/" + ch.id)
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", 48)
 		_place(b, Rect2(area.position.x + i * (sw + 8), oy + 36, sw, 70))
 	# 札の情報・ボタン
 	var levels := []
@@ -1149,6 +1157,10 @@ func _offer_card(o: Dictionary, i: int, r: Rect2) -> void:
 	_place(b, r)
 	var can: bool = run.money >= o.price and not (o.type == "charm" and run.charm_slots_free() <= 0)
 	b.disabled = not can
+	var pic := 0.0
+	if o.type == "charm":
+		pic = min(96.0, r.size.y - 60)
+		_picture("charms/" + o.id, Rect2(r.position + Vector2(10, r.size.y - pic - 8), Vector2(pic, pic)))
 	_text("［%s］%s" % [tag, title], Rect2(r.position + Vector2(14, 10), Vector2(r.size.x - 28, 34)), 24, UiStyle.GOLD)
 	_text(desc, Rect2(r.position + Vector2(14, 48), Vector2(r.size.x - 28, r.size.y - 100)), 19)
 	_text("%d文" % o.price, Rect2(r.position + Vector2(14, r.size.y - 46), Vector2(r.size.x - 28, 36)), 26,
@@ -1224,6 +1236,7 @@ func _pick_card_for(tid: String) -> void:
 	sub.size = Vector2(v.x, 40)
 	sub.position = Vector2(0, 116)
 	_overlay.add_child(sub)
+	_overlay_modal = true
 	var choices := run.talisman_choices()
 	var cw := 140.0 if not Screen.portrait else 150.0
 	var cols := choices.size() if not Screen.portrait else 3
@@ -1242,6 +1255,46 @@ func _pick_card_for(tid: String) -> void:
 			_close_overlay()
 			_build())
 		_overlay.add_child(cv)
+
+
+## 山札の中身：まだ引いていない札は明るく、使った札は暗く
+func _show_deck() -> void:
+	_close_overlay()
+	var v := _view()
+	_overlay = ColorRect.new()
+	(_overlay as ColorRect).color = Color(0.03, 0.01, 0.02, 0.96)
+	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_overlay)
+	var lab := UiStyle.label("山札（明るい札がまだ残っている）  残り %d枚" % run.draw_pile.size(), 28, UiStyle.GOLD)
+	lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lab.size = Vector2(v.x, 44)
+	lab.position = Vector2(0, 16)
+	_overlay.add_child(lab)
+	var cards := run.deck.duplicate()
+	cards.sort_custom(func(a, b): return a.month < b.month or (a.month == b.month and a.kind > b.kind))
+	var cols := 16 if not Screen.portrait else 8
+	var cw: float = (v.x - 40) / cols - 6
+	cw = min(cw, 76.0)
+	var step := cw + 6
+	var x0 := (v.x - step * cols) / 2
+	for i in cards.size():
+		var cv := CardView.new(cards[i])
+		cv.interactive = false
+		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cv.size = Vector2(cw, cw * 1.55)
+		cv.position = Vector2(x0 + (i % cols) * step, 72 + (i / cols) * (cw * 1.55 + 6))
+		if not run.draw_pile.has(cards[i]):
+			cv.modulate = Color(0.35, 0.35, 0.35, 0.8)
+		_overlay.add_child(cv)
+	var b := Button.new()
+	b.text = "閉じる [Esc]"
+	b.add_theme_font_size_override("font_size", 26)
+	UiStyle.button_styles(b)
+	b.position = Vector2(v.x / 2 - 130, v.y - 86)
+	b.size = Vector2(260, 64)
+	b.pressed.connect(_close_overlay)
+	_overlay.add_child(b)
 
 
 func _show_help() -> void:
@@ -1283,6 +1336,7 @@ func _show_help() -> void:
 
 
 func _close_overlay() -> void:
+	_overlay_modal = false
 	if _overlay:
 		_overlay.queue_free()
 		_overlay = null
