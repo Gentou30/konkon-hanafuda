@@ -379,7 +379,7 @@ func _show_talk_line() -> void:
 	var nc := UiStyle.GOLD if who == "K" else (Color(0.75, 0.85, 1.0) if who == "G" else UiStyle.MULT)
 	var name := _talk_name(who)
 	# 名札
-	var tag := _panel(Rect2(box.position + Vector2(28 if who != "B" else box.size.x - 300, -26), Vector2(270, 48)),
+	var tag := _panel(Rect2(box.position + Vector2(28 if who == left else box.size.x - 300, -26), Vector2(270, 48)),
 		nc, Color(0.1, 0.05, 0.06, 0.97), _talk_layer)
 	tag.add_theme_stylebox_override("panel", UiStyle.panel(nc, Color(0.1, 0.05, 0.06, 0.97), 4, 22))
 	_text(name, Rect2(tag.position + Vector2(0, 4), tag.size - Vector2(0, 8)), 26, nc, HORIZONTAL_ALIGNMENT_CENTER, _talk_layer)
