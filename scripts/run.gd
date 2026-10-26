@@ -17,6 +17,9 @@ var discards_left := 0
 var bosses := []
 var used_forms := []
 var sort_by_kind := false
+var required_count := 0  # おタマの「猫の目」：出す枚数（0なら自由）
+var oracle_month := 0    # 玉藻の「幻術」：お題の月
+var _need_roll := false
 var rng := RandomNumberGenerator.new()
 ## 結果画面用
 var best_hand := 0
@@ -54,9 +57,7 @@ func target() -> int:
 func hand_size() -> int:
 	var n := Rules.HAND_SIZE
 	if has_charm("rokuro"):
-		n += 1
-	if boss_id() == "otama":
-		n -= 2
+		n += 2
 	return n
 
 
@@ -67,18 +68,31 @@ func start_round() -> void:
 	discards_left = Rules.DISCARDS
 	if has_charm("chochin"):
 		plays_left += 1
+		discards_left += 1
 	if has_charm("gashadokuro"):
 		plays_left -= 1
 	if has_charm("yukionna"):
-		discards_left += 2
-	match boss_id():
-		"kurobo": discards_left = 0
-		"tamamo": plays_left -= 1
+		discards_left += 1
+	if boss_id() == "kurobo":
+		discards_left = 0
 	plays_left = max(plays_left, 1)
+	required_count = 0
+	oracle_month = 0
 	draw_pile = deck.duplicate()
 	_shuffle(draw_pile)
 	hand.clear()
+	_need_roll = true
 	draw_to_full()
+
+
+## 親分のお題（出す枚数・お題の月）を決め直す。札を出したあと、引き足してから
+func _roll_boss_task() -> void:
+	match boss_id():
+		"otama":
+			required_count = mini(rng.randi_range(3, 5), hand.size())
+		"tamamo":
+			if not hand.is_empty():
+				oracle_month = hand[rng.randi() % hand.size()].month
 
 
 func _shuffle(a: Array) -> void:
@@ -96,6 +110,9 @@ func draw_to_full() -> Array:
 		hand.append(c)
 		drawn.append(c)
 	sort_hand()
+	if _need_roll:
+		_need_roll = false
+		_roll_boss_task()
 	return drawn
 
 
@@ -117,14 +134,12 @@ func play(cards: Array) -> Dictionary:
 	for ch in charms:
 		if ch.id == "kyubi":
 			ch.counter = ch.get("counter", 0) + r.yaku.size()
+	_need_roll = true
 	if r.total > best_hand:
 		best_hand = r.total
 		best_form = r.form_name
 	for c in cards:
 		hand.erase(c)
-	if boss_id() == "tamamo":
-		# 幻術：残りの手札も全部捨てて引き直す
-		hand.clear()
 	return r
 
 
@@ -151,13 +166,15 @@ func payout() -> Array:
 	if plays_left > 0:
 		out.append(["残りの出す回数 ×%d" % plays_left, plays_left])
 	if has_charm("binbo"):
-		out.append(["貧乏神：利子なし", 0])
+		if money >= 2:
+			out.append(["貧乏神：所持金が半分", -(money / 2)])
 	else:
-		var interest: int = min(money / Rules.INTEREST_STEP, Rules.INTEREST_MAX)
+		var cap := Rules.INTEREST_MAX + (3 if has_charm("zashiki") else 0)
+		var interest: int = min(money / Rules.INTEREST_STEP, cap)
 		if interest > 0:
 			out.append(["利子（5文ごとに1文）", interest])
 	if has_charm("zashiki"):
-		out.append(["座敷わらし", 3])
+		out.append(["座敷わらし", 4])
 	return out
 
 
@@ -197,6 +214,12 @@ func shop_offers() -> Array:
 
 func add_charm(id: String) -> void:
 	charms.append({"id": id, "counter": 0})
+	if id == "tsukumo":
+		# 付喪神：来たときに札2枚を金箔にする
+		var plain := deck.filter(func(c): return not c.gold)
+		_shuffle(plain)
+		for c in plain.slice(0, 2):
+			c.gold = true
 
 
 func sell_price(id: String) -> int:

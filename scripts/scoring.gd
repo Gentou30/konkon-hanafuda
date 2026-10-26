@@ -95,6 +95,64 @@ static func detect_yaku(cards: Array) -> Array:
 	return out
 
 
+## 札1枚が使える役の名前（ヒント用）
+static func card_yaku(c: Dictionary) -> Array:
+	var out := []
+	if c.kind == Cards.KIND_HIKARI:
+		out.append("光の役（三光・四光・五光）")
+	for t in c.tags:
+		match t:
+			"ino", "shika", "cho": out.append("猪鹿蝶")
+			"aka": out.append("赤短")
+			"ao": out.append("青短")
+			"maku": out.append("花見で一杯")
+			"tsuki": out.append("月見で一杯")
+			"sake": out.append("花見で一杯・月見で一杯")
+	return out
+
+
+## 役の近道：手札の中で、あと何枚で役になるか。[[名前, 持っている数, 要る数, 足りない札の名前], ...]
+static func yaku_progress(cards: Array) -> Array:
+	var has := {}
+	var hikari := 0
+	for c in cards:
+		for t in c.tags:
+			has[t] = true
+		if c.kind == Cards.KIND_HIKARI:
+			hikari += 1
+	var out := []
+	var groups := [
+		["猪鹿蝶", ["ino", "shika", "cho"], {"ino": "7月の猪", "shika": "10月の鹿", "cho": "6月の蝶"}],
+		["赤短", [], {}], ["青短", [], {}],
+		["花見で一杯", ["maku", "sake"], {"maku": "3月の幕", "sake": "9月の盃"}],
+		["月見で一杯", ["tsuki", "sake"], {"tsuki": "8月の月", "sake": "9月の盃"}],
+	]
+	for g in groups:
+		if g[0] == "赤短" or g[0] == "青短":
+			var tag := "aka" if g[0] == "赤短" else "ao"
+			var n := 0
+			for c in cards:
+				if c.tags.has(tag):
+					n += 1
+			if n > 0:
+				var miss := "1〜3月の赤短" if tag == "aka" else "6・9・10月の青短"
+				out.append([g[0], mini(n, 3), 3, miss])
+			continue
+		var got := 0
+		var miss := []
+		for t in g[1]:
+			if has.has(t):
+				got += 1
+			else:
+				miss.append(g[2][t])
+		if got > 0:
+			out.append([g[0], got, g[1].size(), "・".join(miss)])
+	if hikari > 0:
+		var need := 3 if hikari < 3 else (4 if hikari < 4 else 5)
+		out.append(["光の役", hikari, need, "光の札（1・3・8・11・12月）"])
+	return out
+
+
 static func yaku_def(id: String) -> Array:
 	for y in Rules.YAKU:
 		if y[0] == id:
@@ -134,13 +192,18 @@ static func evaluate(cards: Array, run) -> Dictionary:
 		for ch in run.charms:
 			match ch.id:
 				"kappa":
-					if c.kind == Cards.KIND_KASU: cc += 10
+					if c.kind == Cards.KIND_KASU: cc += 12
 				"ittan":
 					if c.kind == Cards.KIND_TAN: cm += 2
 				"onibi":
 					if c.kind == Cards.KIND_HIKARI: cm += 4
 				"tsukumo":
 					if c.gold: cx *= 1.5
+				"karakasa":
+					if c.month == 11: cm += 3
+				"shuten":
+					if c.tags.has("sake"): cm += 9
+					elif c.kind == Cards.KIND_TANE: cm += 3
 		steps.append({"src": "card", "index": i, "text": "", "chips": cc, "mult": cm, "xmult": cx})
 
 	# 役
@@ -154,31 +217,44 @@ static func evaluate(cards: Array, run) -> Dictionary:
 	for c in cards:
 		month_counts[c.month] = month_counts.get(c.month, 0) + 1
 	var has_match := form in ["pair", "two_pair", "three", "full", "four", "five"]
+	var kind_counts := {}
+	for c in cards:
+		kind_counts[c.kind] = kind_counts.get(c.kind, 0) + 1
 	for i in run.charms.size():
 		var ch: Dictionary = run.charms[i]
 		var s := {"src": "charm", "index": i, "text": "", "chips": 0.0, "mult": 0.0, "xmult": 1.0}
 		match ch.id:
 			"maneki": s.mult = 4
-			"haratsuzumi": if has_match: s.mult = 8
-			"tengu": if form in ["straight", "straight_flush"]: s.xmult = 2.0
-			"noppera": if cards.size() <= 3: s.xmult = 2.5
-			"kasha": s.mult = ch.get("counter", 0)
-			"kyubi": s.xmult = 1.0 + 0.25 * (ch.get("counter", 0) + yaku.size())
-			"nekomata": if form in ["flush", "straight_flush"]: s.xmult = 2.5
+			"haratsuzumi": if has_match: s.mult = 6
+			"tengu": if longest_run(cards) >= 3: s.xmult = 2.0
+			"noppera": if cards.size() <= 3: s.xmult = 3.0
+			"kasha": s.chips = 6 * ch.get("counter", 0)
+			"kyubi": s.xmult = kyubi_mult(ch.get("counter", 0) + yaku.size())
+			"nekomata": if kind_counts.values().max() >= 3: s.xmult = 2.0
 			"gashadokuro": s.xmult = 3.0
-			"binbo": s.mult = 15
-			"shuten":
-				for c in cards:
-					if c.tags.has("sake"): s.xmult = 3.0
-			"umibozu": s.chips = 25 * run.discards_left
+			"binbo": s.mult = 8
+			"yukionna": s.mult = 2 * run.discards_left
+			"umibozu": s.chips = 30 * run.discards_left
 			"hitotsume":
 				if cards.size() == 1:
 					s.chips = 60
-					s.mult = 6
+					s.xmult = 3.0
 			"inugami": s.mult = floor(run.money / 5.0)
-			"baku": if run.plays_left <= 1: s.xmult = 3.0
+			"baku": if run.plays_left <= 1: s.xmult = 4.0
 		if s.chips != 0 or s.mult != 0 or s.xmult != 1.0:
 			steps.append(s)
+
+	# 玉藻の幻術：お題の月を含めれば倍率×2、含めなければ点が半分
+	var halved := false
+	if boss == "tamamo":
+		var hit := false
+		for c in cards:
+			if c.month == run.oracle_month:
+				hit = true
+		if hit:
+			steps.append({"src": "boss", "index": -1, "text": "お題の月！", "chips": 0.0, "mult": 0.0, "xmult": 2.0})
+		else:
+			halved = true
 
 	# 合計（足し算は順に、掛け算はその時点の倍率に掛ける）
 	var tc := 0.0
@@ -188,15 +264,37 @@ static func evaluate(cards: Array, run) -> Dictionary:
 		tm += s.mult
 		tm *= s.xmult
 	var total := tc * tm
-	var halved := false
 	if boss == "kawataro" and run.used_forms.has(form):
-		total /= 2.0
 		halved = true
+	if halved:
+		total /= 2.0
 	return {"form": form, "form_name": fd[1], "yaku": yaku, "steps": steps,
 		"chips": tc, "mult": tm, "total": int(round(total)), "halved": halved}
 
 
-## ボット・おすすめ用：手札から一番点の高い出し方を探す（最大5枚）
+static func kyubi_mult(n: int) -> float:
+	return 1.0 + 0.5 * n
+
+
+## 月が続いている一番長い並び（12月→1月もつながる）
+static func longest_run(cards: Array) -> int:
+	var has := {}
+	for c in cards:
+		has[c.month] = true
+	if has.size() >= 12:
+		return 12
+	var best := 0
+	for m in has:
+		if has.has((m + 10) % 12 + 1):
+			continue  # 並びの先頭からだけ数える
+		var n := 1
+		while has.has((m - 1 + n) % 12 + 1):
+			n += 1
+		best = maxi(best, n)
+	return best
+
+
+## ボット・おすすめ用：手札から一番点の高い出し方を探す（最大5枚。おタマの「猫の目」なら決まった枚数）
 static func best_play(hand: Array, run) -> Dictionary:
 	var best := {"total": -1, "cards": []}
 	var n := hand.size()
@@ -206,7 +304,7 @@ static func best_play(hand: Array, run) -> Dictionary:
 		while m:
 			cnt += m & 1
 			m >>= 1
-		if cnt > Rules.MAX_SELECT:
+		if cnt > Rules.MAX_SELECT or (run.required_count > 0 and cnt != run.required_count):
 			continue
 		var pick := []
 		for i in n:

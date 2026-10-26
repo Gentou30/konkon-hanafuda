@@ -7,6 +7,8 @@ extends Control
 signal tapped(view: CardView)
 
 const KIND_COLORS := [Color(0.45, 0.42, 0.4), Color(0.85, 0.2, 0.2), Color(0.2, 0.6, 0.3), Color(0.95, 0.7, 0.1)]
+## 役に使う印 → 札の右上に出す1文字
+const TAG_MARKS := {"ino": "猪", "shika": "鹿", "cho": "蝶", "sake": "盃", "maku": "幕", "tsuki": "月", "ame": "雨"}
 const MONTH_COLORS := [Color.BLACK, Color(0.2, 0.5, 0.3), Color(0.85, 0.3, 0.4), Color(0.95, 0.6, 0.7), Color(0.55, 0.4, 0.8),
 	Color(0.35, 0.35, 0.8), Color(0.85, 0.2, 0.3), Color(0.75, 0.35, 0.45), Color(0.6, 0.55, 0.3), Color(0.9, 0.7, 0.2),
 	Color(0.85, 0.3, 0.1), Color(0.3, 0.45, 0.35), Color(0.5, 0.35, 0.6)]
@@ -19,6 +21,12 @@ var selected := false:
 		selected = v
 		queue_redraw()
 var face_down := false
+## 玉藻のお題の月など、目立たせたい札
+var marked := false:
+	set(v):
+		marked = v
+		queue_redraw()
+var _t := 0.0
 var hovered := false
 var interactive := true
 
@@ -36,6 +44,12 @@ static func texture_for(art: String) -> Texture2D:
 		var p := "res://assets/images/cards/%s.png" % art
 		_tex_cache[art] = load(p) if ResourceLoader.exists(p) else null
 	return _tex_cache[art]
+
+
+func _process(delta: float) -> void:
+	if marked:
+		_t += delta
+		queue_redraw()
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -85,8 +99,21 @@ func _draw() -> void:
 	elif card.tags.has("ao"):
 		kname = "青短"
 	draw_string(font, kb.position + Vector2(0, fs * 1.08), kname, HORIZONTAL_ALIGNMENT_CENTER, kb.size.x, fs, Color.WHITE)
+	# 役の印（右上の金の丸）
+	var mk := ""
+	for t in card.tags:
+		if TAG_MARKS.has(t):
+			mk = TAG_MARKS[t]
+	if mk != "":
+		var c := Vector2(size.x - fs * 0.85, fs * 0.85)
+		draw_circle(c, fs * 0.78, Color(0.15, 0.05, 0.05, 0.9))
+		draw_arc(c, fs * 0.78, 0, TAU, 24, UiStyle.GOLD, 2.0, true)
+		draw_string(font, c + Vector2(-fs, fs * 0.36), mk, HORIZONTAL_ALIGNMENT_CENTER, fs * 2, int(fs * 0.95), UiStyle.GOLD)
 	if card.bonus > 0:
 		draw_string(font, Vector2(0, size.y - fs * 1.8), "+%d" % card.bonus, HORIZONTAL_ALIGNMENT_RIGHT, size.x - 6, int(fs * 0.9), UiStyle.AI)
+	if marked:
+		var a := 0.55 + 0.35 * sin(_t * 5.0)
+		draw_style_box(_box(Color(0.7, 0.4, 1.0, 0.12), Color(0.8, 0.55, 1.0, a), 4, rad), r.grow(2))
 	if selected:
 		draw_style_box(_box(Color.TRANSPARENT, UiStyle.GOLD, 5, rad), r.grow(3))
 	elif hovered and interactive:

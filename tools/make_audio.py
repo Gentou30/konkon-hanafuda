@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""和風の BGM と効果音をプログラムで合成して assets/audio/ に WAV で書き出す。
+"""和風の効果音をプログラムで合成して assets/audio/ に WAV で書き出す（BGM は make_music.py）。
+下の bgm_* / jingle_* は初版の曲で、今は使っていない。
 
 三味線・琴（はじく弦は Karplus-Strong 法）、笛、太鼓、鐘、拍子木を作り、
 陽音階（明るい）と都節音階（妖しい）で曲を組む。外部素材を使わないのでライセンスの心配がない。
@@ -317,13 +318,7 @@ def jingle_clear():
 # ───────── 効果音 ─────────
 
 def main():
-    bgm_title()
-    bgm_den()
-    bgm_boss()
-    bgm_shop()
-    jingle_win()
-    jingle_lose()
-    jingle_clear()
+    # BGM とジングルは tools/make_music.py（2版目で作り直した）。ここでは効果音だけ書き出す
     save("sfx_select", koto("A5", 0.25, 0.4) + np.pad(paper(0.05, 0.2), (0, int(0.2 * SR))), 0.6)
     save("sfx_card", paper(0.1, 0.5), 0.5)
     save("sfx_discard", paper(0.22, 0.6, False), 0.5)

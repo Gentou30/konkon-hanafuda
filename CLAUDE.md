@@ -8,7 +8,8 @@
 - 3つの宿場 × 3戦（小場・大場・親分）＝9戦。目標点を超えれば勝ち、出す回数を使い切ったら終わり
 - 点 ＝ チップ × 倍率。月の組み合わせで「形」（一対・三つ組・続き月・同種…）、花札の伝統の「役」（猪鹿蝶・赤短…）で上乗せ
 - 勝つと文（お金）→ 夜市で式神（ずっと効く）・巻物（形のレベル上げ）・お札（札をいじる）を買う
-- 親分は特殊な決まりを課す。最後は九尾の玉藻
+- 親分は特殊な決まりを課す。最後は九尾の玉藻（毎回「お題の月」：入れれば倍率×2、外すと半分）
+  - 「手札が減るだけ」のような打つ手のない決まりは面白くない、と言われた。決まりには対抗する手を残す
 - キャラはファーリー（ケモノ）向け、全年齢、コメディ。激しい点滅はしない
 
 ## コード
@@ -19,9 +20,12 @@
 - `scripts/game.gd`: 画面と進行。TITLE → INTRO（場の前・会話）→ PLAY → PAYOUT → SHOP → … → CLEAR / GAMEOVER
   - 画面は状態ごとに組み立て、向きが変わったら組み直す（PLAY は `_layout_play()` で配置だけ直す）
   - 演出中は `busy` で操作を止める。会話中は画面全体のタップで次へ
-  - デバッグビルドのみ F1 +20文 / F2 その場で勝ち / F3 負け / F4 最後の親分へ
-- `scripts/card_view.gd`: 札1枚の描画（絵の上に月と種類の札を重ねる）
-- `scripts/scenario.gd`: セリフ集。`scripts/ui_style.gd`: 色とパネル
+  - デバッグビルドのみ F1 +20文 / F2 その場で勝ち / F3 負け / F4 最後の親分へ / F5 親分の場の前で親分を入れ替え
+- `scripts/card_view.gd`: 札1枚の描画（絵の上に月と種類の札、右上に役の印「猪・鹿・蝶・盃…」を重ねる）
+- `scripts/mini_char.gd`: ドット絵のミニキャラ（待機・喜ぶ・あせる・決めポーズの4コマ＋揺れ・跳ね）
+- `scripts/progress_map.gd`: 道中すごろく（全9戦のどこにいるか）。場の前は大きい版、勝負中は小さい版
+- `scripts/ambient.gd`: 背景の上を舞う紅葉・花びら・狐火（CPUParticles2D は Web で色が崩れたので自前で描く）
+- `scripts/scenario.gd`: セリフ集。冒頭にキャラの芯を書いてある。`scripts/ui_style.gd`: 色・漆のボタン・パネル
 - `scripts/screen.gd`（Autoload `Screen`）: 縦横で基準解像度を 1280x720 / 720x1280 に切り替える
 - `scripts/audio.gd`（Autoload `Audio`）: `Audio.bgm("den")` / `Audio.sfx("chip")` / `Audio.jingle("win")`。M でミュート
 
@@ -29,15 +33,22 @@
 - `godot --headless -s res://tools/balance_sim.gd -- 50 detail`（数秒）
 - ボットは毎回「一番点の高い出し方」を全探索で選び、弱い手なら捨てる。店では式神を優先して買う
 - ボットは役の組み合わせ探しが人間より上手く、店の買い方は人間より下手
-- 目安（現状）：ボットのクリア率 約50%（店に寄らないと0%）。多くは最後の玉藻で負ける
+- 目安（現状）：ボットのクリア率 約50%（店に寄らないと0%）。人間（作者）は3回中3回クリアで「ちょうどいい」
+- `-- 40 charms` で式神1体ずつの強さ比べ（単独で何場勝てるか・店ありのクリア率）。極端に強い／弱いものを出さない
+  - 初版は火車（捨てて育つ倍率）と貧乏神（倍率+15）が強すぎ、九尾の尾などが弱すぎた
 - 書き出しは GDScript の構文エラーがあっても成功してしまう。公開前に sim を1回流すと気付ける
 
 ## 素材
 - 画像：`tools/gen_image.sh <出力> "<プロンプト>" [参照画像]`（Codex の画像生成）。生成元は `art/raw/`（ゲームに含めない）
   - 透過は緑背景で生成して `tools/chroma_key.py`。花札は月ごとに4枚並べて生成し、切り分けて `assets/images/cards/<月>_<0-3>.png`
+  - ミニキャラ：`art/raw/px_<名前>.png`（横に4コマ）→ `python3 tools/make_sprites.py` → `assets/images/px/`
+  - ボタン・パネル・舞う粒：`python3 tools/make_ui.py`（朱塗りのボタン1枚から色違いを作る）
+  - 背景は宿場ごと `bg_stage1〜3.jpg`、店 `bg_shop.jpg`、タイトル `title.jpg`
   - 生成AI素材であることはタイトルに明記している
-- 音：`python3 tools/make_audio.py`（三味線・琴・笛・太鼓を合成。外部素材なし）→ `godot --headless --import`
-  - BGM の `.wav.import` は `edit/loop_mode=2`（作り直したら確認）
+- 音：BGM・ジングルは `python3 tools/make_music.py`、効果音は `python3 tools/make_audio.py` → `godot --headless --import`
+  - 外部素材なし。BGM はステレオ・残響つき。曲は title / den1〜3（宿場ごと）/ boss / final（玉藻）/ shop
+  - 初版の BGM は「チープ」と言われた（効果音は好評なので作り直していない）
+  - BGM の `.wav.import` は `edit/loop_mode=2`（新しい曲を足したら確認）
 
 ## コマンド・公開
 - Godot 4.7.2（`godot` = ~/.local/bin/godot、非.NET版）。GDScript のみ、Compatibility レンダラー

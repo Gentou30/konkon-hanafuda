@@ -52,3 +52,48 @@ static func label(text: String, size: int, color: Color = Color.WHITE, ol: int =
 	l.add_theme_color_override("font_color", color)
 	outline(l, ol)
 	return l
+
+
+## 漆塗りの札のボタン（assets/images/ui/btn_<skin>.png を9分割で伸ばす）。skin: red / blue / gray / purple / green
+## 高さ 50px 未満のボタンでは角の飾りがつぶれるので、button_styles を使う
+static func tex_button(b: Button, skin: String = "red") -> void:
+	var t: Texture2D = load("res://assets/images/ui/btn_%s.png" % skin)
+	var gray: Texture2D = load("res://assets/images/ui/btn_gray.png")
+	b.add_theme_stylebox_override("normal", _tex_box(t, Color.WHITE))
+	b.add_theme_stylebox_override("hover", _tex_box(t, Color(1.25, 1.2, 1.1)))
+	b.add_theme_stylebox_override("pressed", _tex_box(t, Color(0.75, 0.7, 0.7)))
+	b.add_theme_stylebox_override("disabled", _tex_box(gray, Color(0.55, 0.55, 0.55, 0.9)))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.add_theme_color_override("font_color", Color.WHITE)
+	b.add_theme_color_override("font_hover_color", Color(1, 0.95, 0.75))
+	b.add_theme_color_override("font_pressed_color", GOLD)
+	b.add_theme_color_override("font_disabled_color", Color(0.7, 0.68, 0.65))
+	b.add_theme_constant_override("outline_size", 6)
+	b.add_theme_color_override("font_outline_color", Color(0.15, 0.03, 0.02, 0.9))
+
+
+static func _tex_box(t: Texture2D, mod: Color) -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = t
+	sb.texture_margin_left = 30
+	sb.texture_margin_right = 30
+	sb.texture_margin_top = 22
+	sb.texture_margin_bottom = 22
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 8
+	sb.modulate_color = mod
+	return sb
+
+
+## 黒漆に金具の付いた大きいパネル
+## small: 角の金具が小さい版（細い枠用）
+static func tex_panel(alpha: float = 0.95, small: bool = false) -> StyleBoxTexture:
+	var sb := StyleBoxTexture.new()
+	sb.texture = load("res://assets/images/ui/panel_s.png" if small else "res://assets/images/ui/panel.png")
+	for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+		sb.set_texture_margin(side, 27 if small else 46)
+		sb.set_content_margin(side, 16)
+	sb.modulate_color = Color(1, 1, 1, alpha)
+	return sb

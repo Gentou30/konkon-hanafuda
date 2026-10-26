@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# 2版目：宿場ごとの背景、ドット絵のミニキャラ（表情4コマ）、ボタン・パネルの素材
+cd ~/Projects/konkon-hanafuda
+P="16-bit retro pixel art game sprite sheet, crisp hard-edged pixels, no anti-aliasing, limited palette, dark 1-pixel outline, chibi proportions (big head, 2.5 heads tall), cute kemono (furry) style, all-ages."
+L="Exactly 4 frames of the SAME character in one horizontal row, evenly spaced with wide gaps, each frame full body, same size and same design in every frame. Frame 1: idle standing. Frame 2: happy jumping with arms up. Frame 3: panicking with sweat drops. Frame 4: a special pose described below. Plain flat pure green (#00FF00) background with nothing else, no shadows on the background, no text, no grid."
+BG="Background illustration for a game, no characters, no text, no letters. Painterly anime background with rich color, 16:9 wide. Keep the center slightly darker and less detailed so UI on top stays readable."
+gen(){ tools/gen_image.sh "$@" & }
+gen art/raw/px_kon.png "$P $L Character: Kon, a small round orange fox kid with a white muzzle and tail tip, one huge fluffy tail, a green leaf on the head, a short red-and-white happi coat with rope belt, a golden bell at the neck (see reference). Frame 4: smugly fanning a hand of hanafuda cards." art/raw/kon_base.png
+gen art/raw/px_gin.png "$P $L Character: Gin, a slender silver-white guardian fox with pale blue markings and a red bib at the neck, stern half-lidded eyes (see reference). Frame 4: tsukkomi pose, sharply pointing and shouting a retort." art/raw/gin_base.png
+gen art/raw/px_ponkichi.png "$P $L Character: Ponkichi, a big round tanuki boss in a straw hat and dark blue kimono with a sake gourd and a leaf on his head (see reference). Frame 4: transforming in a puff of smoke, holding the leaf on his head." art/raw/boss_ponkichi.png
+gen art/raw/px_otama.png "$P $L Character: Otama, a black-and-white two-tailed cat lady (nekomata) in a purple butterfly kimono with a folding fan (see reference). Frame 4: lazily stretching like a cat, yawning." art/raw/boss_otama.png
+wait
+gen art/raw/px_kurobo.png "$P $L Character: Kurobo, a young crow tengu with a black bird face and beak, a small black tokin cap, mountain-monk outfit with pom-poms, black wings, feather fan (see reference). Frame 4: dramatic cool pose covering one eye with a hand, wings spread." art/raw/boss_kurobo.png
+gen art/raw/px_kawataro.png "$P $L Character: Kawataro, a muscular friendly green kappa with a beak, water dish on head, shell, sumo mawashi and happi coat (see reference). Frame 4: sumo shiko stomp with one leg raised high." art/raw/boss_kawataro.png
+gen art/raw/px_tamamo.png "$P $L Character: Tamamo, a regal golden nine-tailed fox lady with nine fluffy tails, elegant red and gold kimono and hairpins, folding fan (see reference). Frame 4: casting a spell with purple fox-fire swirling around her raised fan." art/raw/boss_tamamo.png
+gen art/raw/bg_stage1.png "$BG Tanuki Alley at night in old Edo Japan: a narrow lively street of small wooden gambling houses, rows of round red paper lanterns, tanuki statues with straw hats and sake bottles, autumn leaves falling, warm orange glow, little floating leaves."
+wait
+gen art/raw/bg_stage2.png "$BG Nekomata Street at night: a canal-side old Japanese town with purple and teal lantern light, arched wooden bridge, cat-shaped paper lanterns, cats silhouettes on rooftops, a big full moon, cherry blossom petals drifting, mysterious elegant mood."
+gen art/raw/bg_stage3.png "$BG Inside the Nine-Tailed Fox Palace: a grand golden shrine hall at night, vermilion pillars, endless rows of torii gates seen through open shoji, floating purple and blue fox-fire flames, golden folding screens painted with nine-tailed foxes, majestic and mystical final-level mood."
+gen art/raw/ui_btn_red.png "A single blank game UI button plate, front view, flat, wide horizontal rectangle about 4:1, glossy vermilion red lacquer with a thin gold metal rim and small gold corner ornaments in Japanese style, slight top highlight. Nothing written on it, no text. Centered on a plain flat pure green (#00FF00) background, no shadow."
+gen art/raw/ui_panel.png "A single blank game UI panel frame, front view, flat, rectangle about 3:2, deep black-brown lacquer with a subtle wood grain, a thin gold rim and gold Japanese corner fittings (kanamono). Empty center, nothing written, no text. Centered on a plain flat pure green (#00FF00) background, no shadow."
+wait
